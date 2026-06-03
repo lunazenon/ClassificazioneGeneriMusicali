@@ -1,0 +1,123 @@
+PROGETTO FINALE 
+Classificazione dei Generi Musicali
+Componenti del gruppo
+Antonella
+Giuseppe
+Laura
+Luana
+
+Obiettivo del progetto
+L'obiettivo del progetto è sviluppare un modello di Machine Learning in grado di classificare automaticamente il genere musicale di un brano utilizzando le caratteristiche audio presenti nel dataset.
+Il dataset contiene oltre 50.000 canzoni appartenenti a diversi generi musicali e include informazioni quali danceability, energy, acousticness, tempo, loudness, popularity e altre caratteristiche audio utili alla classificazione.
+Il progetto prevede le seguenti fasi:
+Analisi esplorativa dei dati.
+Preprocessing e preparazione del dataset.
+Addestramento e validazione dei modelli di classificazione.
+Visualizzazione e interpretazione dei risultati.
+
+Suddivisione dei compiti
+Parte 1 – Caricamento dei dati e Analisi Esplorativa
+Responsabile: Antonella
+Attività assegnate
+Importazione del dataset.
+Analisi della struttura del dataset.
+Individuazione di eventuali valori mancanti.
+Analisi statistica descrittiva.
+Studio della distribuzione dei generi musicali.
+Individuazione delle principali correlazioni tra le variabili.
+Attività svolte
+Importazione del dataset
+
+
+
+Parte 2 – Preprocessing e Addestramento del Modello
+Responsabile: Giuseppe
+Attività assegnate
+Pulizia dei dati.
+Gestione dei valori mancanti.
+Rimozione delle colonne non utili alla classificazione.
+Codifica della variabile target (genere musicale).
+Suddivisione del dataset in Training Set e Test Set.
+Standardizzazione delle feature numeriche.
+Addestramento dei modelli di classificazione.
+Attività svolte
+Da aggiornare durante il progetto.
+
+Parte 3 – Validazione del Modello
+Responsabile: Laura
+Attività assegnate
+Valutazione delle prestazioni dei modelli.
+Calcolo delle metriche di classificazione:
+Accuracy
+Precision
+Recall
+F1-Score
+Analisi delle Confusion Matrix.
+Confronto delle prestazioni tra i modelli testati.
+Individuazione del modello migliore.
+Attività svolte
+Da aggiornare durante il progetto.
+
+
+
+Parte 4 – Visualizzazione Grafica dei Risultati
+Responsabile: Luana
+Attività assegnate
+Creazione dei grafici esplorativi.
+Visualizzazione della distribuzione dei generi musicali.
+Realizzazione della heatmap delle correlazioni.
+Grafici delle principali feature audio.
+Visualizzazione delle performance dei modelli.
+Realizzazione delle confusion matrix.
+Grafico comparativo delle metriche dei modelli.
+Grafico dell'importanza delle feature del modello finale.
+Attività svolte
+Da aggiornare durante il progetto.
+
+Registro delle attività
+Data
+Componente  
+Attività svolta
+03/06
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Risultati finali
+Modello selezionato
+Da compilare.
+Accuratezza finale
+Da compilare.
+Principali feature rilevanti
+Da compilare.
+Considerazioni finali
+Da compilare al termine del progetto.
+
+Chronology
+
+3/06/2026 10.00 - 11.00 : Scelta tema principale e dataset 
+3/06/2026 11.00 - 12.00 : Suddivisione ruoli 
+3/06/2026 12.00 - 13.00 : Allineamento documentazione e iniziale gestione Kanban Board
+ 
+
+
