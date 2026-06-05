@@ -1,165 +1,131 @@
 import tkinter as tk
 import customtkinter as ctk
 from tkinter import messagebox
-import random
+import pandas as pd
+import numpy as np
+import joblib
+import os
+from collections import Counter
 
-# Impostazioni generali sul tema visivo (Scuro con accenti pastello)
 ctk.set_appearance_mode("Dark")
 
-# --- PALETTE COLORI PASTELLO PERSONALIZZATA (Stile Glicine/Lavanda/Aesthetic) ---
-BG_MAIN = "#191724"          # Sfondo principale scuro morbido
-BG_PANEL = "#1f1d2e"         # Sfondo dei pannelli interni
-PASTEL_VIOLET = "#c4a7e7"    # Lilla pastello principale (bottoni e accenti)
-PASTEL_HOVER = "#b494db"     # Lilla pastello scuro per l'effetto hover al passaggio del mouse
-PASTEL_GREEN = "#9ccfd8"     # Verde acqua pastello (per i risultati positivi)
-TEXT_LIGHT = "#e0def4"       # Testo principale chiaro
-TEXT_MUTED = "#908caa"       # Testo secondario/suggerimenti (grigio pastello)
-BORDER_COLOR = "#403d52"     # Bordi delicati
+BG_MAIN = "#191724"
+BG_PANEL = "#1f1d2e"
+PASTEL_VIOLET = "#c4a7e7"
+PASTEL_HOVER = "#b494db"
+PASTEL_GREEN = "#9ccfd8"
+TEXT_LIGHT = "#e0def4"
+TEXT_MUTED = "#908caa"
+BORDER_COLOR = "#403d52"
+WARN_COLOR = "#f6c177"
+
 
 class MusicGenreApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # Configurazione Finestra Principale
-        self.title("Music Genre Classifier - AI Prediction")
-        self.geometry("900x670")
+        self.genre_history = None
+        self.genre_map = None
+        self.label_encoder = None
+
+        self.load_trained_artifacts()
+
+        self.title("Music Genre Classifier - Artist Lookup")
+        self.geometry("900x560")
         self.resizable(False, False)
         self.configure(fg_color=BG_MAIN)
 
-        # Griglia principale: 1 riga, 2 colonne (Barra laterale + Pannello input)
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        # --- 1. BARRA LATERALE (SIDEBAR) ---
         self.sidebar_frame = ctk.CTkFrame(self, width=240, corner_radius=0, fg_color=BG_PANEL)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
         self.sidebar_frame.grid_rowconfigure(4, weight=1)
 
-        # Titolo dell'applicazione
         self.title_label = ctk.CTkLabel(
-            self.sidebar_frame, 
-            text="TEAMFOUR", 
+            self.sidebar_frame,
+            text="TEAMFOUR",
             font=ctk.CTkFont(family="Segoe UI", size=26, weight="bold"),
             text_color=PASTEL_VIOLET
         )
         self.title_label.grid(row=0, column=0, padx=20, pady=(35, 40))
 
-        # Selezione del Modello di Machine Learning
-        self.model_label = ctk.CTkLabel(
-            self.sidebar_frame, 
-            text="Seleziona Modello:", 
+        self.mode_label = ctk.CTkLabel(
+            self.sidebar_frame,
+            text="Modalità:",
             font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
             text_color=TEXT_LIGHT
         )
-        self.model_label.grid(row=1, column=0, padx=25, pady=(10, 5), sticky="w")
+        self.mode_label.grid(row=1, column=0, padx=25, pady=(10, 5), sticky="w")
 
-        self.model_optionmenu = ctk.CTkOptionMenu(
+        self.mode_optionmenu = ctk.CTkOptionMenu(
             self.sidebar_frame,
-            values=["LightGBM (Optuna)", "Random Forest (Optuna)", "Decision Tree (Optuna)"],
+            values=["Lookup artista", "Classificazione assistita"],
             fg_color="#2a283e",
             button_color="#3f3c56",
             button_hover_color="#4e4a6b",
             text_color=TEXT_LIGHT,
-            font=ctk.CTkFont(family="Segoe UI", size=12)
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            command=self.on_mode_change
         )
-        self.model_optionmenu.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
-        self.model_optionmenu.set("LightGBM (Optuna)")
+        self.mode_optionmenu.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+        self.mode_optionmenu.set("Lookup artista")
 
-        # Informazioni di Info/Credits in basso alla barra
+        self.status_label = ctk.CTkLabel(
+            self.sidebar_frame,
+            text="Stato: Verifico dati...",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color=TEXT_MUTED
+        )
+        self.status_label.grid(row=3, column=0, padx=20, pady=10, sticky="w")
+        self.update_status_ui()
+
         self.info_label = ctk.CTkLabel(
-            self.sidebar_frame, 
-            text="Progetto Classificazione\nGeneri Musicali v1.1", 
+            self.sidebar_frame,
+            text="Predizione basata\nsullo storico artista-genere",
             font=ctk.CTkFont(family="Segoe UI", size=11),
             text_color=TEXT_MUTED
         )
         self.info_label.grid(row=5, column=0, padx=20, pady=25)
 
-
-        # --- 2. PANNELLO CENTRALE DI INPUT ---
         self.main_frame = ctk.CTkScrollableFrame(self, corner_radius=15, fg_color="transparent")
         self.main_frame.grid(row=0, column=1, padx=25, pady=20, sticky="nsew")
-        self.main_frame.grid_columnconfigure((0, 1), weight=1)
+        self.main_frame.grid_columnconfigure(0, weight=1)
 
-        # Intestazione pannello di input
         self.header_label = ctk.CTkLabel(
-            self.main_frame, 
-            text="Parametri Audio della Traccia", 
+            self.main_frame,
+            text="Predizione genere musicale da artista",
             font=ctk.CTkFont(family="Segoe UI", size=19, weight="bold"),
             text_color=TEXT_LIGHT
         )
-        self.header_label.grid(row=0, column=0, columnspan=2, padx=10, pady=(10, 20), sticky="w")
+        self.header_label.grid(row=0, column=0, padx=10, pady=(10, 12), sticky="w")
 
-        # Dizionario per salvare i widget di input numerici
-        self.inputs = {}
+        artist_frame = ctk.CTkFrame(self.main_frame, fg_color=BG_PANEL, border_color=PASTEL_VIOLET, border_width=1, corner_radius=10)
+        artist_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+        artist_frame.grid_columnconfigure(0, weight=1)
 
-        # Definizione dei campi
-        features_config = [
-            ("popularity", "Popularity", "45.0", "(0.0 - 100.0)"),
-            ("acousticness", "Acousticness", "0.15", "(0.0 - 1.0)"),
-            ("danceability", "Danceability", "0.65", "(0.0 - 1.0)"),
-            ("energy", "Energy", "0.70", "(0.0 - 1.0)"),
-            ("instrumentalness", "Instrumentalness", "0.02", "(0.0 - 1.0)"),
-            ("loudness", "Loudness (dB)", "-6.5", "(es: -5.0)"),
-            ("speechiness", "Speechiness", "0.08", "(0.0 - 1.0)"),
-            ("tempo", "Tempo (BPM)", "120.0", "(es: 80 - 180)"),
-            ("valence", "Valence (Positività)", "0.50", "(0.0 - 1.0)"),
-        ]
-
-        # Creazione dinamica della griglia di input
-        for idx, (key, label_text, default, hint) in enumerate(features_config):
-            row = (idx // 2) + 1
-            col = (idx % 2) * 1
-
-            field_frame = ctk.CTkFrame(self.main_frame, fg_color=BG_PANEL, border_color=BORDER_COLOR, border_width=1, corner_radius=10)
-            field_frame.grid(row=row, column=col, padx=10, pady=8, sticky="ew")
-            field_frame.grid_columnconfigure(0, weight=1)
-
-            lbl = ctk.CTkLabel(field_frame, text=f" {label_text}", font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"), text_color=TEXT_LIGHT)
-            lbl.grid(row=0, column=0, sticky="w", padx=10, pady=(8, 2))
-            
-            lbl_hint = ctk.CTkLabel(field_frame, text=hint, font=ctk.CTkFont(family="Segoe UI", size=11), text_color=TEXT_MUTED)
-            lbl_hint.grid(row=0, column=1, sticky="e", padx=10, pady=(8, 2))
-
-            entry = ctk.CTkEntry(
-                field_frame, 
-                placeholder_text=default,
-                fg_color="#26233a",
-                border_color=BORDER_COLOR,
-                text_color=TEXT_LIGHT,
-                placeholder_text_color=TEXT_MUTED
-            )
-            entry.insert(0, default)
-            entry.grid(row=1, column=0, columnspan=2, padx=10, pady=(2, 8), sticky="ew")
-
-            self.inputs[key] = entry
-
-        # Menu a tendina per variabili categoriali
-        cat_frame = ctk.CTkFrame(self.main_frame, fg_color=BG_PANEL, border_color=BORDER_COLOR, border_width=1, corner_radius=10)
-        cat_frame.grid(row=(len(features_config)//2)+1, column=0, columnspan=2, padx=10, pady=12, sticky="ew")
-        cat_frame.grid_columnconfigure((0, 1), weight=1)
-
-        # Tendina KEY
-        ctk.CTkLabel(cat_frame, text="Key (Nota Musicale):", font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"), text_color=TEXT_LIGHT).grid(row=0, column=0, sticky="w", padx=15, pady=(8, 2))
-        self.key_option = ctk.CTkOptionMenu(
-            cat_frame, 
-            values=["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
-            fg_color="#2a283e", button_color="#3f3c56", button_hover_color="#4e4a6b", text_color=TEXT_LIGHT
+        artist_lbl = ctk.CTkLabel(
+            artist_frame,
+            text="Nome Artista",
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            text_color=PASTEL_VIOLET
         )
-        self.key_option.grid(row=1, column=0, padx=15, pady=(2, 10), sticky="ew")
+        artist_lbl.grid(row=0, column=0, sticky="w", padx=15, pady=(8, 2))
 
-        # Tendina MODE
-        ctk.CTkLabel(cat_frame, text="Mode (Tonalità):", font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"), text_color=TEXT_LIGHT).grid(row=0, column=1, sticky="w", padx=15, pady=(8, 2))
-        self.mode_option = ctk.CTkOptionMenu(
-            cat_frame, 
-            values=["Major", "Minor"],
-            fg_color="#2a283e", button_color="#3f3c56", button_hover_color="#4e4a6b", text_color=TEXT_LIGHT
+        self.artist_entry = ctk.CTkEntry(
+            artist_frame,
+            placeholder_text="Es: Metallica, Eminem, Röyksopp...",
+            fg_color="#26233a",
+            border_color=BORDER_COLOR,
+            text_color=TEXT_LIGHT,
+            placeholder_text_color=TEXT_MUTED
         )
-        self.mode_option.grid(row=1, column=1, padx=15, pady=(2, 10), sticky="ew")
+        self.artist_entry.insert(0, "Metallica")
+        self.artist_entry.grid(row=1, column=0, padx=15, pady=(2, 12), sticky="ew")
 
-        # --- 3. PULSANTE DI PREDIZIONE E AREA RISULTATO ---
         self.btn_predict = ctk.CTkButton(
-            self.main_frame, 
-            text="CLASSIFICA GENERE MUSICALE", 
+            self.main_frame,
+            text="🔮 ANALIZZA ARTISTA",
             font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
             height=46,
             fg_color=PASTEL_VIOLET,
@@ -167,48 +133,155 @@ class MusicGenreApp(ctk.CTk):
             text_color="#191724",
             command=self.predict_genre
         )
-        self.btn_predict.grid(row=(len(features_config)//2)+2, column=0, columnspan=2, padx=10, pady=20, sticky="ew")
+        self.btn_predict.grid(row=2, column=0, padx=10, pady=16, sticky="ew")
 
-        # Box per il risultato (CORRETTO)
-        self.result_frame = ctk.CTkFrame(self.main_frame, height=85, corner_radius=12, border_width=2, border_color=PASTEL_VIOLET, fg_color=BG_PANEL)
-        self.result_frame.grid(row=(len(features_config)//2)+3, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+        self.result_frame = ctk.CTkFrame(self.main_frame, height=130, corner_radius=12, border_width=2, border_color=PASTEL_VIOLET, fg_color=BG_PANEL)
+        self.result_frame.grid(row=3, column=0, padx=10, pady=8, sticky="ew")
         self.result_frame.grid_propagate(False)
         self.result_frame.grid_rowconfigure(0, weight=1)
-        self.result_frame.grid_columnconfigure(0, weight=1) # <-- Riga corretta!
+        self.result_frame.grid_columnconfigure(0, weight=1)
 
         self.result_label = ctk.CTkLabel(
-            self.result_frame, 
-            text="In attesa dei dati...", 
+            self.result_frame,
+            text="In attesa dei dati...",
             font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
             text_color=TEXT_MUTED
         )
         self.result_label.pack(expand=True, fill="both", padx=10, pady=10)
 
+        self.detail_label = ctk.CTkLabel(
+            self.main_frame,
+            text="Lookup artista usa lo storico per restituire il genere più frequente. Classificazione assistita usa il lookup + stima di affidabilità.",
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color=TEXT_MUTED,
+            wraplength=560,
+            justify="left"
+        )
+        self.detail_label.grid(row=4, column=0, padx=12, pady=(4, 12), sticky="w")
+
+    def on_mode_change(self, value):
+        if value == "Lookup artista":
+            self.btn_predict.configure(text=" ANALIZZA ARTISTA")
+        else:
+            self.btn_predict.configure(text=" CLASSIFICAZIONE ASSISTITA")
+
+    def load_trained_artifacts(self):
+        try:
+            if os.path.exists("artist_genre_history.joblib"):
+                self.genre_history = joblib.load("artist_genre_history.joblib")
+            if os.path.exists("artist_genre_map.joblib"):
+                self.genre_map = joblib.load("artist_genre_map.joblib")
+            if os.path.exists("label_encoder.joblib"):
+                self.label_encoder = joblib.load("label_encoder.joblib")
+        except Exception as e:
+            print(f"Nota: caricamento artefatti non completato ({e}).")
+
+    def update_status_ui(self):
+        if self.genre_map is not None or self.genre_history is not None:
+            self.status_label.configure(text="Stato: Storico artista caricato", text_color="#9ccfd8")
+        else:
+            self.status_label.configure(text="Stato: Nessuno storico trovato", text_color="#eb6f92")
+
+    def _normalize_artist(self, name):
+        return str(name).strip().lower()
+
+    def _lookup_genre_from_map(self, artist_name):
+        if self.genre_map is None:
+            return None, 0, None
+        key = self._normalize_artist(artist_name)
+        if key not in self.genre_map:
+            return None, 0, None
+        value = self.genre_map[key]
+        if isinstance(value, dict):
+            genre = value.get("genre") or value.get("top_genre")
+            count = int(value.get("count", 0))
+            total = int(value.get("total", max(count, 1)))
+            return genre, count, total
+        if isinstance(value, (list, tuple)) and len(value) >= 2:
+            genre = value[0]
+            count = int(value[1])
+            total = int(value[2]) if len(value) > 2 else max(count, 1)
+            return genre, count, total
+        if isinstance(value, str):
+            return value, 1, 1
+        return None, 0, None
+
+    def _infer_from_history(self, artist_name):
+        if self.genre_history is None:
+            return None, 0, 0
+        if not isinstance(self.genre_history, pd.DataFrame):
+            return None, 0, 0
+        lower_cols = {c.lower(): c for c in self.genre_history.columns}
+        artist_col = None
+        genre_col = None
+        for cand in ["artist", "artists", "name", "track_artist"]:
+            if cand in lower_cols:
+                artist_col = lower_cols[cand]
+                break
+        for cand in ["genre", "track_genre", "label", "class"]:
+            if cand in lower_cols:
+                genre_col = lower_cols[cand]
+                break
+        if artist_col is None or genre_col is None:
+            return None, 0, 0
+        mask = self.genre_history[artist_col].astype(str).str.strip().str.lower() == self._normalize_artist(artist_name)
+        subset = self.genre_history.loc[mask, genre_col].dropna().astype(str)
+        if subset.empty:
+            return None, 0, 0
+        counts = Counter(subset)
+        genre, count = counts.most_common(1)[0]
+        total = len(subset)
+        return genre, count, total
+
     def predict_genre(self):
         try:
-            data_inseriti = {}
-            for key, entry_widget in self.inputs.items():
-                valore = entry_widget.get().strip()
-                if not valore:
-                    raise ValueError(f"Il campo '{key}' non può essere vuoto.")
-                data_inseriti[key] = float(valore)
+            artist_name = self.artist_entry.get().strip()
+            if not artist_name:
+                raise ValueError("Il campo 'Nome Artista' è obbligatorio.")
 
-            data_inseriti["key"] = self.key_option.get()
-            data_inseriti["mode"] = self.mode_option.get()
-            modello_scelto = self.model_optionmenu.get()
+            mode = self.mode_optionmenu.get()
 
-            generi_simulati = ["Rock", "Electronic", "Hip-Hop", "Jazz", "Classical", "Rap", "Alternative"]
-            random.seed(int(data_inseriti["popularity"] + data_inseriti["tempo"]))
-            genere_predetto = random.choice(generi_simulati)
-            probabilita_affidabilita = random.uniform(78.5, 97.2)
+            genre = None
+            count = 0
+            total = 0
 
-            testo_risultato = f"Genere Predetto: {genere_predetto.upper()}\n" \
-                             f"Modello: {modello_scelto}  |  Confidenza: {probabilita_affidabilita:.2f}%"
-            
-            self.result_label.configure(text=testo_risultato, text_color=PASTEL_GREEN)
+            if self.genre_map is not None:
+                genre, count, total = self._lookup_genre_from_map(artist_name)
 
-        except ValueError as err:
-            messagebox.showerror("Errore di Inserimento", f"Ops! Controlla i valori numerici inseriti.\n\nDettaglio:\n{err}")
+            if genre is None:
+                genre, count, total = self._infer_from_history(artist_name)
+
+            if genre is None:
+                if mode == "Lookup artista":
+                    self.result_label.configure(
+                        text=f"Nessun dato trovato per: {artist_name.upper()}\nProva un artista presente nello storico.",
+                        text_color=WARN_COLOR
+                    )
+                else:
+                    self.result_label.configure(
+                        text=f"Classificazione assistita non disponibile per: {artist_name.upper()}\nArtista non presente nello storico.",
+                        text_color=WARN_COLOR
+                    )
+                return
+
+            confidence = (count / total * 100.0) if total else 0.0
+            share_text = f"Occorrenze: {count}/{total}" if total else "Occorrenze: n/d"
+
+            if mode == "Lookup artista":
+                text = f"Artista: {artist_name.upper()}\nGenere dominante: {str(genre).upper()}\n{share_text}"
+                self.result_label.configure(text=text, text_color=PASTEL_GREEN)
+            else:
+                text = (
+                    f"Artista: {artist_name.upper()}\n"
+                    f"Genere stimato: {str(genre).upper()}\n"
+                    f"Affidabilità storico: {confidence:.2f}%\n"
+                    f"{share_text}"
+                )
+                self.result_label.configure(text=text, text_color=PASTEL_GREEN if confidence >= 50 else WARN_COLOR)
+
+        except Exception as err:
+            messagebox.showerror("Errore nei Dati", f"Controlla i campi inseriti.\n\nDettaglio:\n{err}")
+
 
 if __name__ == "__main__":
     app = MusicGenreApp()
