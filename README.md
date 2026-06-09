@@ -190,18 +190,3 @@ Il progetto dimostra come una corretta preparazione dei dati e l'ottimizzazione 
 
 L'unione tra rigore analitico, ottimizzazione algoritmica e una semplice interfaccia grafica rende il progetto una soluzione completa end-to-end di Machine Learning.
 
-Ti suggerirei anche di separare le due versioni con un indice iniziale:
-
-# Music Genre Classification / Classificazione dei Generi Musicali
-
-- 🇬🇧 [English Version](#english-version)
-- 🇮🇹 [Versione Italiana](#versione-italiana)
-
-e usare:
-
-# English Version
-...
-# Versione Italiana
-...
-
-in modo da avere un README più professionale e simile ai repository open-source più curati.
